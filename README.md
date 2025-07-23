@@ -1,6 +1,6 @@
 # Arroyo Real-Time Stream Processing Platform
 
-A production-ready deployment of [Arroyo](https://arroyo.dev), an open-source distributed stream processing engine, configured with Redpanda (Kafka-compatible) for high-performance event streaming.
+A deployment of [Arroyo](https://arroyo.dev), an open-source distributed stream processing engine, configured with Redpanda (Kafka-compatible) for high-performance event streaming.
 
 This repository provides:
 - **Generic streaming infrastructure** ready for any real-time processing use case
