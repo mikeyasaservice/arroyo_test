@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  # Arroyo - Single instance with UI
+  arroyo:
+    image: ghcr.io/arroyosystems/arroyo:latest
+    ports:
+      - "5115:5115"
+    environment:
+      - RUST_LOG=info
+
+  # PostgreSQL for Arroyo state
+  postgres:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=arroyo
+      - POSTGRES_PASSWORD=arroyo
+      - POSTGRES_DB=arroyo
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arroyo"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redpanda for event streaming
+  redpanda-0:
+    image: docker.redpanda.com/redpandadata/redpanda:v25.1.8
+    container_name: redpanda-0
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda-0:9092,external://localhost:19092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://redpanda-0:8082,external://localhost:18082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr redpanda-0:33145
+      - --advertise-rpc-addr redpanda-0:33145
+      - --mode dev-container
+      - --smp 1
+      - --default-log-level=info
+    ports:
+      - "18081:18081"
+      - "18082:18082"
+      - "19092:19092"
+      - "19644:9644"
+    volumes:
+      - redpanda-0:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.*true' || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # Redpanda Console for monitoring
+  redpanda-console:
+    container_name: redpanda-console
+    image: docker.redpanda.com/redpandadata/console:v3.1.2
+    entrypoint: /bin/sh
+    command: -c 'echo "$$CONSOLE_CONFIG_FILE" > /tmp/config.yml; /app/console'
+    environment:
+      CONFIG_FILEPATH: /tmp/config.yml
+      CONSOLE_CONFIG_FILE: |
+        kafka:
+          brokers: ["redpanda-0:9092"]
+        schemaRegistry:
+          enabled: true
+          urls: ["http://redpanda-0:8081"]
+        redpanda:
+          adminApi:
+            enabled: true
+            urls: ["http://redpanda-0:9644"]
+    ports:
+      - "8090:8080"
+    depends_on:
+      - redpanda-0
+
+
+volumes:
+  postgres_data:
+  redpanda-0:
